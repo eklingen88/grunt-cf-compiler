@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation exports
+Conditions:
+  HasNot: !Equals
+    - 'true'
+    - 'false'
+Resources:
+  NullResource:
+    Type: 'Custom::NullResource'
+    Condition: HasNot
+Outputs:
+  ExportsStackName:
+    Value: !Ref 'AWS::StackName'
+    Export:
+      Name: !Sub 'ExportsStackName-${AWS::StackName}'

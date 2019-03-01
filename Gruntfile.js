@@ -30,21 +30,23 @@ module.exports = function(grunt) {
 
     // Configuration to be run (and then tested).
     cf_compiler: {
-      default_options: {
+      null_stack: {
         options: {
+          outputFormat: 'yaml'
         },
-        files: {
-          'tmp/default_options': ['test/fixtures/testing', 'test/fixtures/123']
-        }
+        files: [{
+          src: 'test/fixtures/null-stack.yaml',
+          dest: 'tmp/null-stack.yaml'
+        }]
       },
-      custom_options: {
+      nested_null_stack: {
         options: {
-          separator: ': ',
-          punctuation: ' !!!'
+          outputFormat: 'yaml'
         },
-        files: {
-          'tmp/custom_options': ['test/fixtures/testing', 'test/fixtures/123']
-        }
+        files: [{
+          src: 'test/fixtures/nested-null-stack.yaml',
+          dest: 'tmp/nested-null-stack.yaml'
+        }]
       }
     },
 

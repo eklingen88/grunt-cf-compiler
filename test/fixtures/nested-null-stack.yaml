@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation exports
+Conditions:
+  HasNot: !Equals
+    - 'true'
+    - 'false'
+Resources:
+  NullResourceMain:
+    Type: 'Custom::NullResource'
+    Condition: HasNot
+  NestedNullStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: './null-stack.yaml'
+Outputs:
+  ExportsStackName:
+    Value: !Ref 'AWS::StackName'
+    Export:
+      Name: !Sub 'ExportsStackName-${AWS::StackName}'
