@@ -1,9 +1,9 @@
 /*
- * {%= name %}
- * {%= homepage %}
+ * grunt-cf-compiler
+ * https://github.com/eklingen88/grunt-cf-compiler
  *
- * Copyright (c) {%= grunt.template.today('yyyy') %} {%= author_name %}
- * Licensed under the {%= licenses.join(', ') %} license{%= licenses.length === 1 ? '' : 's' %}.
+ * Copyright (c) 2019 Eric M. Klingensmith
+ * Licensed under the MIT license.
  */
 
 'use strict';
@@ -29,7 +29,7 @@ module.exports = function(grunt) {
     },
 
     // Configuration to be run (and then tested).
-    {%= short_name %}: {
+    cf_compiler: {
       default_options: {
         options: {
         },
@@ -65,7 +65,7 @@ module.exports = function(grunt) {
 
   // Whenever the "test" task is run, first clean the "tmp" dir, then run this
   // plugin's task(s), then test the result.
-  grunt.registerTask('test', ['clean', '{%= short_name %}', 'nodeunit']);
+  grunt.registerTask('test', ['clean', 'cf_compiler', 'nodeunit']);
 
   // By default, lint and run all tests.
   grunt.registerTask('default', ['jshint', 'test']);

@@ -1,9 +1,9 @@
 /*
- * {%= name %}
- * {%= homepage %}
+ * grunt-cf-compiler
+ * https://github.com/eklingen88/grunt-cf-compiler
  *
- * Copyright (c) {%= grunt.template.today('yyyy') %} {%= author_name %}
- * Licensed under the {%= licenses.join(', ') %} license{%= licenses.length === 1 ? '' : 's' %}.
+ * Copyright (c) 2019 Eric M. Klingensmith
+ * Licensed under the MIT license.
  */
 
 'use strict';
@@ -13,7 +13,7 @@ module.exports = function(grunt) {
   // Please see the Grunt documentation for more information regarding task
   // creation: http://gruntjs.com/creating-tasks
 
-  grunt.registerMultiTask('{%= short_name %}', '{%= description %}', function() {
+  grunt.registerMultiTask('cf_compiler', 'Compiler for AWS CloudFormation', function() {
     // Merge task-specific and/or target-specific options with these defaults.
     var options = this.options({
       punctuation: '.',
