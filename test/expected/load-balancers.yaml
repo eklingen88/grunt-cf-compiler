@@ -97,7 +97,7 @@ Resources:
     Properties:
       Handler: index.handler
       Code:
-        S3Bucket: tmg-cloud
+        S3Bucket: my-cloud-bucket
         S3Key: lambda/build/alb_tg_manager.zip
       Role:
         Fn::GetAtt:
@@ -114,7 +114,7 @@ Resources:
             Ref: InternalALB
           REGION:
             Ref: AWS::Region
-          S3_BUCKET: tmg-sandbox-temp
+          S3_BUCKET: my-cloud-bucket
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:

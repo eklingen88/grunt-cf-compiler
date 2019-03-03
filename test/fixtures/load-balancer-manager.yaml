@@ -14,7 +14,7 @@ Resources:
     Properties:
       Handler: index.handler
       Code:
-        S3Bucket: tmg-cloud
+        S3Bucket: my-cloud-bucket
         S3Key: lambda/build/alb_tg_manager.zip
       Role: !GetAtt LambdaRole.Arn
       Runtime: python2.7

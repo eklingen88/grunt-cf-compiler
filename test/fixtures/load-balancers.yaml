@@ -116,7 +116,7 @@ Resources:
         HttpTgArn: !Ref HttpTargetGroup
         HttpsTgArn: !Ref HttpsTargetGroup
         AlbArn: !Ref InternalALB
-        S3Bucket: 'tmg-sandbox-temp'
+        S3Bucket: 'my-cloud-bucket'
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 4cabd535-8212-45c7-8ff2-77a246f4c6db

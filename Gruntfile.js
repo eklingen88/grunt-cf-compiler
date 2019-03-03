@@ -62,12 +62,6 @@ module.exports = function(grunt) {
     // Unit tests.
     nodeunit: {
       tests: ['test/*_test.js']
-    },
-
-    ts: {
-      default : {
-        src: ["test/fixtures/example.ts", "!node_modules/**"]
-      }
     }
 
   });
