@@ -82,8 +82,10 @@ In lieu of a formal styleguide, take care to maintain the existing coding style.
 
 ## Roadmap
 - Additional testing of parameters.
-- Merging stack input parameters and outputs.
+- Merging stack input parameters ~~and outputs~~.
 - Prefixing substack resource names.
+- JSON and YAML output options.
+- Template validation using _cfn-lint_.
 
 ## Release History
 _(Nothing yet)_
