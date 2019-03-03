@@ -1,15 +1,18 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: CloudFormation exports
 Conditions:
-  HasNot: !Equals
-    - 'true'
-    - 'false'
+  HasNot:
+    Fn::Equals:
+      - "true"
+      - "false"
 Resources:
   NullResource:
-    Type: 'Custom::NullResource'
+    Type: Custom::NullResource
     Condition: HasNot
 Outputs:
   ExportsStackName:
-    Value: !Ref 'AWS::StackName'
+    Value:
+      Ref: AWS::StackName
     Export:
-      Name: !Sub 'ExportsStackName-${AWS::StackName}'
+      Name:
+        Fn::Sub: ExportsStackName-${AWS::StackName}
