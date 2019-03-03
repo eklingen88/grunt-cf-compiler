@@ -11,23 +11,6 @@
 const YAML = require('yaml');
 const cfnParser = require('cfn-lint/lib/parser');
 const path = require('path');
-// const tsNode = require('ts-node' );
-// const tsp = require('typescript-parser' );
-// const tsParser = new tsp.TypescriptParser;
-
-// const cloudform = require('cloudform');
-// const tsNode = require('ts-node').register({ project: process.cwd()+ "/tsconfig.json" });
-
-// const ts = require('typescript');
-// const tsconfig = require('tsconfig');
-
-// const compilerOptions = tsconfig.loadSync(process.cwd()).config.compilerOptions
-
-// const { exec } = require( 'child_process' );
-// const vm = require( 'vm' );
-// const newModule = require( 'module' );
-// const Execute = require('execute-js');
-
 
 module.exports = function (grunt) {
 
@@ -43,9 +26,12 @@ module.exports = function (grunt) {
 
         // Find nested stacks
         for ( let resourceProperty in resourceNodes) {
+            // Get all of the resource nodes
             let resourceNode = resourceNodes[resourceProperty];
 
+            // Check if it's a nested stack
             if( resourceNode.Type == 'AWS::CloudFormation::Stack' ) {
+                // Parse the nested stack
                 let nestedFilepath = resourceNode.Properties.TemplateURL;
                 nestedFilepath = path.resolve(path.dirname(filepath), nestedFilepath);
 
@@ -57,13 +43,42 @@ module.exports = function (grunt) {
 
                 // Add the nested resources
                 for( let nestedResourceProperty in nestedResourceNodes ) {
-                    resourceNodes[nestedResourceProperty] = nestedResourceNodes[nestedResourceProperty];
+                    // Make sure that there isn't a conflict
+                    if(resourceNodes.hasOwnProperty(nestedResourceProperty)) {
+                        grunt.log.error('Conflicting resources in nested template.' );
+                    } else {
+                        // Add the nested resource
+                        resourceNodes[nestedResourceProperty] = nestedResourceNodes[nestedResourceProperty];
+                    }
                 }
             }
         }
 
+        // Strip metadata out
+        templateNodes = stripMetadata(templateNodes);
+
         // Send back the processed nodes
         return templateNodes;
+    }
+
+    let stripMetadata = function(nodes) {
+        // Loop through all of the nodes
+        for( let property in nodes) {
+            // Check if it's a metadata node
+            if (property == 'Metadata' ) {
+                // Delete it
+                delete nodes[property];
+            } else {
+                // Go deeper if it's an object
+                let node = nodes[property];
+
+                if( typeof node == 'object' ) {
+                    stripMetadata(node);
+                }
+            }
+        }
+
+        return nodes;
     }
 
     let parseTemplate = function (filepath) {

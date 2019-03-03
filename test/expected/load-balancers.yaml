@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Loading balancing using three load balancers to provide traffic from Route 53
+  and static IP address.
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet::Id
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id
+  ExternalNlbEip1:
+    Type: String
+    AllowedPattern: eipalloc-[0-9a-f]+
+    Description: Allocation ID for Elastic IP to be used for the Network Load Balancer in
+      PublicSubnet1 (e.g. epialloc-08220b81762050e32)
+Resources:
+  HttpTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Protocol: TCP
+      Port: 80
+      TargetType: ip
+      HealthCheckIntervalSeconds: 10
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: traffic-port
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Ref: VPC
+  ExternalNLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: network
+      Scheme: internet-facing
+      SubnetMappings:
+        - AllocationId:
+            Ref: ExternalNlbEip1
+          SubnetId:
+            Ref: PublicSubnet1
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ExternalNLB
+      Port: 80
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: HttpTargetGroup
+  ExternalALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - Ref: PublicSubnet1
+        - Ref: PublicSubnet2
+  InternalALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internal
+      Subnets:
+        - Ref: PrivateSubnet1
+        - Ref: PrivateSubnet2
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ExternalNLB
+      Port: 443
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: HttpsTargetGroup
+  HttpsTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Protocol: TCP
+      Port: 443
+      TargetType: ip
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: TCP
+      HealthCheckPort: traffic-port
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Ref: VPC
+  AlbTgManager:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: >-
+        https://s3.amazonaws.com/tmg-cloud/cloudformation/templates/nested/LambdaAlbTgManager.yaml
+      Parameters:
+        HttpTgArn: !Ref HttpTargetGroup
+        HttpsTgArn: !Ref HttpsTargetGroup
+        AlbArn: !Ref InternalALB
+        S3Bucket: 'tmg-sandbox-temp'

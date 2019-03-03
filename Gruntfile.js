@@ -47,6 +47,15 @@ module.exports = function(grunt) {
           src: 'test/fixtures/nested-null-stack.yaml',
           dest: 'tmp/nested-null-stack.yaml'
         }]
+      },
+      load_balancers: {
+        options: {
+          outputFormat: 'yaml'
+        },
+        files: [{
+          src: 'test/fixtures/load-balancers.yaml',
+          dest: 'tmp/load-balancers.yaml'
+        }]
       }
     },
 

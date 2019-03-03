@@ -1,0 +1,236 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  HttpTgArn:
+    Type: String
+  HttpsTgArn:
+    Type: String
+  AlbArn:
+    Type: String
+  S3Bucket:
+    Type: String
+Resources:
+  LambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: index.handler
+      Code:
+        S3Bucket: tmg-cloud
+        S3Key: lambda/build/alb_tg_manager.zip
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python2.7
+      Environment:
+        Variables:
+          HTTP_TG_ARN: !Ref HttpTgArn
+          HTTPS_TG_ARN: !Ref HttpsTgArn
+          ALB_ARN: !Ref AlbArn
+          REGION: !Ref 'AWS::Region'
+          S3_BUCKET: !Ref S3Bucket
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 12287c63-ee0c-4781-b08a-0ca08a447b8d
+  LambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 92713189-2b5d-4ca0-b684-81e4382719a1
+  CloudWatchPublishPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: CloudWatchPublish
+      Roles:
+        - !Ref LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cloudwatch:putMetricData'
+            Resource:
+              - '*'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 76d02e6c-a829-49af-9eb4-99e6505a5c49
+  S3ReadWritePolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: S3ReadWrite
+      Roles:
+        - !Ref LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:Get*'
+              - 's3:PutObject'
+              - 's3:CreateBucket'
+              - 's3:ListBucket'
+              - 's3:ListAllMyBuckets'
+            Resource:
+              - '*'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: a001ed04-5b4f-4f3c-8a40-3d0dbf0febc3
+  LogPublishPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: LogPublish
+      Roles:
+        - !Ref LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Resource:
+              - 'arn:aws:logs:*:*:*'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: ac1efabb-2897-487e-b999-8d4123020c71
+  ElbTargetManagerPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: ElbTargetManager
+      Roles:
+        - !Ref LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'elasticloadbalancing:DescribeSSLPolicies'
+              - 'elasticloadbalancing:DescribeTags'
+              - 'elasticloadbalancing:RegisterTargets'
+              - 'elasticloadbalancing:DeregisterTargets'
+              - 'elasticloadbalancing:DescribeLoadBalancerAttributes'
+              - 'elasticloadbalancing:DescribeLoadBalancers'
+              - 'elasticloadbalancing:DescribeTargetGroupAttributes'
+              - 'elasticloadbalancing:DescribeListeners'
+              - 'elasticloadbalancing:DescribeAccountLimits'
+              - 'elasticloadbalancing:DescribeTargetHealth'
+              - 'elasticloadbalancing:DescribeTargetGroups'
+              - 'elasticloadbalancing:DescribeListenerCertificates'
+              - 'elasticloadbalancing:DescribeRules'
+            Resource:
+              - '*'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 1a53a9ea-7190-4484-84bd-bfd57d3075bc
+  CloudWatchTrigger:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt LambdaFunction.Arn
+          Id: LambdaTargetFunction
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 80e21246-8060-467a-baea-08c73bd6aa41
+  PermissionForEventsToInvokeLambda:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: 'lambda:InvokeFunction'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CloudWatchTrigger.Arn
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: b9637f07-df09-4608-a227-eb0bacf0d300
+Metadata:
+  'AWS::CloudFormation::Designer':
+    12287c63-ee0c-4781-b08a-0ca08a447b8d:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 600
+        'y': 150
+      z: 1
+      embeds: []
+    92713189-2b5d-4ca0-b684-81e4382719a1:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 510
+        'y': 150
+      z: 1
+      embeds: []
+    1a53a9ea-7190-4484-84bd-bfd57d3075bc:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 300
+        'y': 120
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 92713189-2b5d-4ca0-b684-81e4382719a1
+    ac1efabb-2897-487e-b999-8d4123020c71:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 390
+        'y': 120
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 92713189-2b5d-4ca0-b684-81e4382719a1
+    a001ed04-5b4f-4f3c-8a40-3d0dbf0febc3:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 240
+        'y': 120
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 92713189-2b5d-4ca0-b684-81e4382719a1
+    76d02e6c-a829-49af-9eb4-99e6505a5c49:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 150
+        'y': 120
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 92713189-2b5d-4ca0-b684-81e4382719a1
+    80e21246-8060-467a-baea-08c73bd6aa41:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 600
+        'y': 250
+      z: 1
+      embeds: []
+    b9637f07-df09-4608-a227-eb0bacf0d300:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 740
+        'y': 250
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 12287c63-ee0c-4781-b08a-0ca08a447b8d

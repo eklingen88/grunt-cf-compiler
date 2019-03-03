@@ -1,0 +1,200 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Loading balancing using three load balancers to provide traffic from Route 53
+  and static IP address.
+Parameters:
+  VPC:
+    Type: 'AWS::EC2::VPC::Id'
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet::Id'
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet::Id'
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet::Id'
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet::Id'
+  ExternalNlbEip1:
+    Type: String
+    AllowedPattern: 'eipalloc-[0-9a-f]+'
+    Description: >-
+      Allocation ID for Elastic IP to be used for the Network Load Balancer in
+      PublicSubnet1 (e.g. epialloc-08220b81762050e32)
+Resources:
+  HttpTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Protocol: TCP
+      Port: 80
+      TargetType: ip
+      HealthCheckIntervalSeconds: 10
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: traffic-port
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VPC
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: cf5bd0b1-75cd-45f5-a259-313e49463834
+  ExternalNLB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Type: network
+      Scheme: internet-facing
+      SubnetMappings:
+        - AllocationId: !Ref ExternalNlbEip1
+          SubnetId: !Ref PublicSubnet1
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 537621b7-7e59-41aa-a1f1-7d07729ebba4
+  HttpListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref ExternalNLB
+      Port: 80
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref HttpTargetGroup
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 766b1754-659f-4bad-acd8-ab322bdcbb95
+  ExternalALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 26c25cb8-4f69-421f-8531-e346f63369da
+  InternalALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Type: application
+      Scheme: internal
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 0fe0044a-a1cf-46ad-9545-65a4e5ecf31a
+  HttpsListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref ExternalNLB
+      Port: 443
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref HttpsTargetGroup
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 1543de2d-2738-452f-8a5d-1e95336ceefe
+  HttpsTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Protocol: TCP
+      Port: 443
+      TargetType: ip
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: TCP
+      HealthCheckPort: traffic-port
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VPC
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: e5e9d0cb-139c-48b3-add6-9311b5038105
+  AlbTgManager:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: >-
+        ./load-balancer-manager.yaml
+      Parameters:
+        HttpTgArn: !Ref HttpTargetGroup
+        HttpsTgArn: !Ref HttpsTargetGroup
+        AlbArn: !Ref InternalALB
+        S3Bucket: 'tmg-sandbox-temp'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 4cabd535-8212-45c7-8ff2-77a246f4c6db
+Metadata:
+  'AWS::CloudFormation::Designer':
+    537621b7-7e59-41aa-a1f1-7d07729ebba4:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 30
+        'y': 180
+      z: 1
+      embeds: []
+    766b1754-659f-4bad-acd8-ab322bdcbb95:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 150
+        'y': 150
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 537621b7-7e59-41aa-a1f1-7d07729ebba4
+    e5e9d0cb-139c-48b3-add6-9311b5038105:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 30
+        'y': 300
+      z: 1
+      embeds: []
+    1543de2d-2738-452f-8a5d-1e95336ceefe:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 150
+        'y': 240
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 537621b7-7e59-41aa-a1f1-7d07729ebba4
+    cf5bd0b1-75cd-45f5-a259-313e49463834:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 30
+        'y': 90
+      z: 1
+      embeds: []
+    26c25cb8-4f69-421f-8531-e346f63369da:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 30
+        'y': 430
+      z: 1
+      embeds: []
+    0fe0044a-a1cf-46ad-9545-65a4e5ecf31a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 280
+        'y': 180
+      z: 1
+      embeds: []
+    4cabd535-8212-45c7-8ff2-77a246f4c6db:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 550
+        'y': 180
+      z: 1
+      embeds: []
