@@ -11,6 +11,10 @@ Parameters:
   AvailabilityZone2:
     Description: Availability Zone second set of subnets.
     Type: AWS::EC2::AvailabilityZone::Name
+  CertificateArn:
+    Type: String
+    AllowedPattern: arn:aws:acm:[0-9a-z\-]+:[0-9]+:certificate\/[0-9a-f\-]+
+    Description: Certificate ARN for the ALB listeners.
 Mappings:
   RegionMap:
     us-east-1:
@@ -326,7 +330,7 @@ Resources:
                   - logs:DescribeLogStreams
                   - logs:PutLogEvents
                 Resource: "*"
-  HttpTargetGroup:
+  ExternalNlbHttpTg:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Protocol: TCP
@@ -339,7 +343,7 @@ Resources:
       UnhealthyThresholdCount: 2
       VpcId:
         Ref: VPC
-  ExternalNLB:
+  ExternalNlb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Type: network
@@ -348,17 +352,17 @@ Resources:
         - AllocationId: eipalloc-08220b81762050e32
           SubnetId:
             Ref: PublicSubnet1
-  HttpListener:
+  ExternalNlbHttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn:
-        Ref: ExternalNLB
+        Ref: ExternalNlb
       Port: 80
       Protocol: TCP
       DefaultActions:
         - Type: forward
           TargetGroupArn:
-            Ref: HttpTargetGroup
+            Ref: ExternalNlbHttpTg
   ExternalAlb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -375,18 +379,18 @@ Resources:
       Subnets:
         - Ref: PrivateSubnet1
         - Ref: PrivateSubnet2
-  HttpsListener:
+  ExternalNlbHttpsListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn:
-        Ref: ExternalNLB
+        Ref: ExternalNlb
       Port: 443
       Protocol: TCP
       DefaultActions:
         - Type: forward
           TargetGroupArn:
-            Ref: HttpsTargetGroup
-  HttpsTargetGroup:
+            Ref: ExternalNlbHttpsTg
+  ExternalNlbHttpsTg:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Protocol: TCP
@@ -399,6 +403,68 @@ Resources:
       UnhealthyThresholdCount: 2
       VpcId:
         Ref: VPC
+  ExternalAlbHttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ExternalAlb
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - Certificate:
+            Ref: CertificateArn
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody:
+              Fn::Sub: ${AWS::StackName} External ALB on 443
+            StatusCode: 200
+  ExternalAlbHttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ExternalAlb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody:
+              Fn::Sub: ${AWS::StackName} External ALB on 80
+            StatusCode: 200
+  InternalAlbHttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: InternalAlb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody:
+              Fn::Sub: ${AWS::StackName} Internal ALB on 80
+            StatusCode: 200
+  InternalAlbHttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: InternalAlb
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - Certificate:
+            Ref: CertificateArn
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody:
+              Fn::Sub: ${AWS::StackName} Internal ALB on 443
+            StatusCode: 200
   LambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -414,9 +480,9 @@ Resources:
       Environment:
         Variables:
           HTTP_TG_ARN:
-            Ref: HttpTargetGroup
+            Ref: ExternalNlbHttpTg
           HTTPS_TG_ARN:
-            Ref: HttpsTargetGroup
+            Ref: ExternalNlbHttpsTg
           ALB_ARN:
             Ref: InternalAlb
           REGION:

@@ -24,10 +24,11 @@ module.exports = function (grunt) {
         // Get the important nodes
         let resourceNodes = getResourceNodes(templateNodes);
         let outputsNodes = getOutputsNodes(templateNodes);
+        let parameterNodes = getParameterNodes(templateNodes);
 
         // Find nested stacks
         for (let resourceProperty in resourceNodes) {
-            // Get all of the resource nodes
+            // Get all of the important nodes
             let resourceNode = resourceNodes[resourceProperty];
 
             // Check if it's a nested stack
@@ -39,23 +40,37 @@ module.exports = function (grunt) {
                 let nestedTemplateNodes = processTemplate(nestedFilepath);
                 let nestedResourceNodes = getResourceNodes(nestedTemplateNodes);
                 let nestedOutputsNodes = getOutputsNodes(nestedTemplateNodes);
+                let nestedParameterNodes = getParameterNodes(nestedTemplateNodes);
 
                 // Get parameters for replacement and merging
                 let nestedStackParameters = getNestedStackParameters(resourceNode);
 
                 // Replace parameter references
-                for (let nestedParameterProperty in nestedStackParameters) {
-                    let nestedStackParameter = nestedStackParameters[nestedParameterProperty];
+                for (let nestedStackParameterProperty in nestedStackParameters) {
+                    let nestedStackParameter = nestedStackParameters[nestedStackParameterProperty];
 
                     // Make sure the referenced objects exist
                     if (nestedStackParameter.hasOwnProperty('Ref')) {
                         if (!resourceNodes.hasOwnProperty(nestedStackParameter.Ref)) {
-                            grunt.log.error('Parent stack is missing referenced parameter');
+                            grunt.log.error('Parent stack is missing referenced parameter:');
+                            grunt.log.warn('|- Nested Stack File: ' + nestedFilepath);
+                            grunt.log.warn('|- Resource: ' + nestedStackParameter.Ref);
                         }
                     }
 
                     // Find and replace parameters in nested stack
-                    nestedResourceNodes = replaceNestedStackParameter(nestedResourceNodes, nestedStackParameter, nestedParameterProperty);
+                    nestedResourceNodes = replaceNestedStackParameter(nestedResourceNodes, nestedStackParameter, nestedStackParameterProperty);
+                }
+
+                // Make sure each parameter of the nested stack is accounted for
+                for (let nestedParameterProperty in nestedParameterNodes ) {
+                    if( !resourceNodes.hasOwnProperty(nestedParameterProperty) && !nestedStackParameters.hasOwnProperty(nestedParameterProperty)) {
+                        grunt.log.warn('Nested parameter was not accounted for and is being added to parent input parameters:');
+                        grunt.log.warn('|- Nested Stack File: ' + nestedFilepath);
+                        grunt.log.warn('|- Parameter: ' + nestedParameterProperty);
+
+                        parameterNodes[nestedParameterProperty] = nestedParameterNodes[nestedParameterProperty];
+                    }
                 }
 
                 // Remove this node
@@ -65,7 +80,9 @@ module.exports = function (grunt) {
                 for (let nestedResourceProperty in nestedResourceNodes) {
                     // Make sure that there isn't a conflict
                     if (resourceNodes.hasOwnProperty(nestedResourceProperty)) {
-                        grunt.log.error('Conflicting resources in nested template.');
+                        grunt.log.warn('Conflicting resources in nested template:');
+                        grunt.log.warn('|- Nested Stack File: ' + nestedFilepath);
+                        grunt.log.warn('|- Resource Name: ' + nestedResourceProperty);
                     } else {
                         // Add the nested resource
                         resourceNodes[nestedResourceProperty] = nestedResourceNodes[nestedResourceProperty];
@@ -77,7 +94,9 @@ module.exports = function (grunt) {
                 for (let nestedOutputsProperty in nestedOutputsNodes) {
                     // Make sure there isnt' a conflict
                     if (outputsNodes.hasOwnProperty(nestedOutputsProperty)) {
-                        grunt.log.error('Conflicting outputs in nested template.');
+                        grunt.log.error('Conflicting outputs in nested template:');
+                        grunt.log.warn('|- Nested Stack File: ' + nestedFilepath);
+                        grunt.log.warn('|- Output Name: ' + nestedOutputsProperty);
                     } else {
                         // Add the nested output
                         outputsNodes[nestedOutputsProperty] = nestedOutputsNodes[nestedOutputsProperty];
@@ -85,8 +104,13 @@ module.exports = function (grunt) {
                 }
 
                 // Check that the original template even had outputs
-                if( !templateNodes.hasOwnProperty('Outputs' ) ) {
+                if( !templateNodes.hasOwnProperty('Outputs' ) && Object.keys(outputsNodes).length > 0 ) {
                     templateNodes['Outputs'] = outputsNodes;
+                }
+
+                // Check that the original template even had parameters
+                if( !templateNodes.hasOwnProperty('Parameters' ) && Object.keys(parameterNodes).length > 0 ) {
+                    templateNodes['Parameters'] = parameterNodes;
                 }
             }
         }
@@ -165,6 +189,15 @@ module.exports = function (grunt) {
 
         // Use cfn-lint's parser
         return cfnParser.openFile(filepath);
+    }
+
+    let getParameterNodes = function (templateNodes) {
+        // Make sure output property exists
+        if (templateNodes.hasOwnProperty('Parameters')) {
+            return templateNodes.Parameters;
+        } else {
+            return new Object();
+        }
     }
 
     let getOutputsNodes = function (templateNodes) {
