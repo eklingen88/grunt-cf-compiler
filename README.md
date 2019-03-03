@@ -80,5 +80,10 @@ grunt.initConfig({
 ## Contributing
 In lieu of a formal styleguide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality. Lint and test your code using [Grunt](http://gruntjs.com/).
 
+## Roadmap
+- Additional testing of parameters.
+- Merging stack input parameters and outputs.
+- Prefixing substack resource names.
+
 ## Release History
 _(Nothing yet)_
