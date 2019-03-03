@@ -63,8 +63,8 @@ module.exports = function (grunt) {
                 }
 
                 // Make sure each parameter of the nested stack is accounted for
-                for (let nestedParameterProperty in nestedParameterNodes ) {
-                    if( !resourceNodes.hasOwnProperty(nestedParameterProperty) && !nestedStackParameters.hasOwnProperty(nestedParameterProperty)) {
+                for (let nestedParameterProperty in nestedParameterNodes) {
+                    if (!resourceNodes.hasOwnProperty(nestedParameterProperty) && !nestedStackParameters.hasOwnProperty(nestedParameterProperty)) {
                         grunt.log.warn('Nested parameter was not accounted for and is being added to parent input parameters:');
                         grunt.log.warn('|- Nested Stack File: ' + nestedFilepath);
                         grunt.log.warn('|- Parameter: ' + nestedParameterProperty);
@@ -104,12 +104,12 @@ module.exports = function (grunt) {
                 }
 
                 // Check that the original template even had outputs
-                if( !templateNodes.hasOwnProperty('Outputs' ) && Object.keys(outputsNodes).length > 0 ) {
+                if (!templateNodes.hasOwnProperty('Outputs') && Object.keys(outputsNodes).length > 0) {
                     templateNodes['Outputs'] = outputsNodes;
                 }
 
                 // Check that the original template even had parameters
-                if( !templateNodes.hasOwnProperty('Parameters' ) && Object.keys(parameterNodes).length > 0 ) {
+                if (!templateNodes.hasOwnProperty('Parameters') && Object.keys(parameterNodes).length > 0) {
                     templateNodes['Parameters'] = parameterNodes;
                 }
             }
@@ -232,6 +232,12 @@ module.exports = function (grunt) {
 
             // Parse the template
             let processedTemplateNodes = processTemplate(filepath);
+
+            // Make a note of the number of resources
+            let resourceNodes = getResourceNodes(processedTemplateNodes);
+            let resourceCount = Object.keys(resourceNodes).length;
+            let resourceLimitPercent = Math.round(resourceCount / 200 * 100);
+            grunt.log.writeln('Compiled template has ' + resourceCount + ' resources. (' + resourceLimitPercent + '% of limit)');
 
             // Put back into output format
             let output = YAML.stringify(processedTemplateNodes);
