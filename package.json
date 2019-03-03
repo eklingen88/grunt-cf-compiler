@@ -1,7 +1,7 @@
 {
   "name": "grunt-cf-compiler",
   "description": "Compiler for AWS CloudFormation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "homepage": "https://github.com/eklingen88/grunt-cf-compiler",
   "author": {
     "name": "Eric M. Klingensmith",

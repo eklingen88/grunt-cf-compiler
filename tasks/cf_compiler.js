@@ -17,38 +17,40 @@ module.exports = function (grunt) {
     // Please see the Grunt documentation for more information regarding task
     // creation: http://gruntjs.com/creating-tasks
 
-    let processTemplate = function(filepath, parent) {
+    let processTemplate = function (filepath, parent) {
         // Parse the template
         let templateNodes = parseTemplate(filepath);
 
         // Get the important nodes
         let resourceNodes = getResourceNodes(templateNodes);
+        let outputsNodes = getOutputsNodes(templateNodes);
 
         // Find nested stacks
-        for ( let resourceProperty in resourceNodes) {
+        for (let resourceProperty in resourceNodes) {
             // Get all of the resource nodes
             let resourceNode = resourceNodes[resourceProperty];
 
             // Check if it's a nested stack
-            if( resourceNode.Type == 'AWS::CloudFormation::Stack' ) {
+            if (resourceNode.Type == 'AWS::CloudFormation::Stack') {
                 // Parse the nested stack
                 let nestedFilepath = resourceNode.Properties.TemplateURL;
                 nestedFilepath = path.resolve(path.dirname(filepath), nestedFilepath);
 
-                let nestedTemplateNodes = processTemplate( nestedFilepath );
+                let nestedTemplateNodes = processTemplate(nestedFilepath);
                 let nestedResourceNodes = getResourceNodes(nestedTemplateNodes);
+                let nestedOutputsNodes = getOutputsNodes(nestedTemplateNodes);
 
                 // Get parameters for replacement and merging
                 let nestedStackParameters = getNestedStackParameters(resourceNode);
 
                 // Replace parameter references
-                for( let nestedParameterProperty in nestedStackParameters) {
+                for (let nestedParameterProperty in nestedStackParameters) {
                     let nestedStackParameter = nestedStackParameters[nestedParameterProperty];
 
                     // Make sure the referenced objects exist
                     if (nestedStackParameter.hasOwnProperty('Ref')) {
-                        if( !resourceNodes.hasOwnProperty(nestedStackParameter.Ref)) {
-                            grunt.log.error( 'Parent stack is missing referenced parameter' );
+                        if (!resourceNodes.hasOwnProperty(nestedStackParameter.Ref)) {
+                            grunt.log.error('Parent stack is missing referenced parameter');
                         }
                     }
 
@@ -60,14 +62,31 @@ module.exports = function (grunt) {
                 delete resourceNodes[resourceProperty];
 
                 // Add the nested resources
-                for( let nestedResourceProperty in nestedResourceNodes ) {
+                for (let nestedResourceProperty in nestedResourceNodes) {
                     // Make sure that there isn't a conflict
-                    if(resourceNodes.hasOwnProperty(nestedResourceProperty)) {
-                        grunt.log.error('Conflicting resources in nested template.' );
+                    if (resourceNodes.hasOwnProperty(nestedResourceProperty)) {
+                        grunt.log.error('Conflicting resources in nested template.');
                     } else {
                         // Add the nested resource
                         resourceNodes[nestedResourceProperty] = nestedResourceNodes[nestedResourceProperty];
                     }
+                }
+
+                // Add the nested outputs
+                // TODO Make these two loops a bit more DRY
+                for (let nestedOutputsProperty in nestedOutputsNodes) {
+                    // Make sure there isnt' a conflict
+                    if (outputsNodes.hasOwnProperty(nestedOutputsProperty)) {
+                        grunt.log.error('Conflicting outputs in nested template.');
+                    } else {
+                        // Add the nested output
+                        outputsNodes[nestedOutputsProperty] = nestedOutputsNodes[nestedOutputsProperty];
+                    }
+                }
+
+                // Check that the original template even had outputs
+                if( !templateNodes.hasOwnProperty('Outputs' ) ) {
+                    templateNodes['Outputs'] = outputsNodes;
                 }
             }
         }
@@ -79,27 +98,27 @@ module.exports = function (grunt) {
         return templateNodes;
     }
 
-    let replaceNestedStackParameter = function(nodes, nestedStackParameter, nestedStackParameterValue) {
-        for( let property in nodes ) {
+    let replaceNestedStackParameter = function (nodes, nestedStackParameter, nestedStackParameterValue) {
+        for (let property in nodes) {
             let node = nodes[property];
 
-            if( property == 'Ref' && node == nestedStackParameterValue ) {
+            if (property == 'Ref' && node == nestedStackParameterValue) {
                 let a = 1;
                 // Remove current ref
                 delete nodes['Ref'];
 
                 // Add new value
-                if( typeof nestedStackParameter == 'object' ) {
+                if (typeof nestedStackParameter == 'object') {
                     for (let nestedStackParameterProperty in nestedStackParameter) {
                         nodes[nestedStackParameterProperty] = nestedStackParameter[nestedStackParameterProperty];
                     }
                 } else {
                     nodes = nestedStackParameter;
                 }
-            } else if( typeof node == 'object' ) {
+            } else if (typeof node == 'object') {
                 node = replaceNestedStackParameter(node, nestedStackParameter, nestedStackParameterValue);
 
-                if( typeof node != 'object' ) {
+                if (typeof node != 'object') {
                     nodes[property] = node;
                 }
             }
@@ -108,9 +127,9 @@ module.exports = function (grunt) {
         return nodes;
     }
 
-    let getNestedStackParameters = function(node) {
-        if( node.hasOwnProperty('Properties') ) {
-            if (node.Properties.hasOwnProperty('Parameters' ) ) {
+    let getNestedStackParameters = function (node) {
+        if (node.hasOwnProperty('Properties')) {
+            if (node.Properties.hasOwnProperty('Parameters')) {
                 return node.Properties.Parameters;
             } else {
                 return new Object();
@@ -118,18 +137,18 @@ module.exports = function (grunt) {
         }
     }
 
-    let stripMetadata = function(nodes) {
+    let stripMetadata = function (nodes) {
         // Loop through all of the nodes
-        for( let property in nodes) {
+        for (let property in nodes) {
             // Check if it's a metadata node
-            if (property == 'Metadata' ) {
+            if (property == 'Metadata') {
                 // Delete it
                 delete nodes[property];
             } else {
                 // Go deeper if it's an object
                 let node = nodes[property];
 
-                if( typeof node == 'object' ) {
+                if (typeof node == 'object') {
                     stripMetadata(node);
                 }
             }
@@ -148,10 +167,21 @@ module.exports = function (grunt) {
         return cfnParser.openFile(filepath);
     }
 
-    let getResourceNodes = function(templateNodes) {
+    let getOutputsNodes = function (templateNodes) {
+        // Make sure output property exists
+        if (templateNodes.hasOwnProperty('Outputs')) {
+            return templateNodes.Outputs;
+        } else {
+            return new Object();
+        }
+    }
+
+    let getResourceNodes = function (templateNodes) {
         // Make sure resources property exists
-        if(templateNodes.hasOwnProperty('Resources' ) ) {
+        if (templateNodes.hasOwnProperty('Resources')) {
             return templateNodes.Resources;
+        } else {
+            return new Object();
         }
     }
 
@@ -165,7 +195,7 @@ module.exports = function (grunt) {
         this.files.forEach(function (f) {
             // Get absolute filepath
             let filepath = f.src[0];
-            filepath = path.resolve( process.cwd(), filepath );
+            filepath = path.resolve(process.cwd(), filepath);
 
             // Parse the template
             let processedTemplateNodes = processTemplate(filepath);
