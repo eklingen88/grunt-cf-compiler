@@ -1,0 +1,553 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    AllowedPattern: ((\d{1,3})\.){3}\d{1,3}/\d{1,2}
+    Default: 172.20.0.0/16
+    Description: CIDR block for entire VPC (e.g. 10.0.0.0/16).
+  AvailabilityZone1:
+    Description: Availability Zone first set of subnets.
+    Type: AWS::EC2::AvailabilityZone::Name
+  AvailabilityZone2:
+    Description: Availability Zone second set of subnets.
+    Type: AWS::EC2::AvailabilityZone::Name
+Mappings:
+  RegionMap:
+    us-east-1:
+      Naming: USEast1
+    us-east-2:
+      Naming: USEast2
+    us-west-1:
+      Naming: USWest1
+    us-west-2:
+      Naming: USWest2
+Resources:
+  AttachGatewayVPC:
+    Properties:
+      InternetGatewayId:
+        Ref: InternetGateway
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::VPCGatewayAttachment
+  InternetGateway:
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - InternetGateway
+    Type: AWS::EC2::InternetGateway
+  InternetGatewayRoute:
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+      RouteTableId:
+        Ref: PublicRouteTable
+    Type: AWS::EC2::Route
+  NatGateway1:
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - NatGateway1Eip
+          - AllocationId
+      SubnetId:
+        Ref: PublicSubnet1
+    Type: AWS::EC2::NatGateway
+  NatGateway1Eip:
+    Properties: {}
+    Type: AWS::EC2::EIP
+  NatGateway2:
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - NatGateway2Eip
+          - AllocationId
+      SubnetId:
+        Ref: PublicSubnet2
+    Type: AWS::EC2::NatGateway
+  NatGateway2Eip:
+    Properties: {}
+    Type: AWS::EC2::EIP
+  NatGatewayRoute1:
+    DependsOn:
+      - NatGateway1
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NatGateway1
+      RouteTableId:
+        Ref: PrivateRouteTable1
+    Type: AWS::EC2::Route
+  NatGatewayRoute2:
+    DependsOn:
+      - NatGateway2
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NatGateway2
+      RouteTableId:
+        Ref: PrivateRouteTable2
+    Type: AWS::EC2::Route
+  PrivateRouteTable1:
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - PrivateRouteTable1
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::RouteTable
+  PrivateRouteTable2:
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - PrivateRouteTable2
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::RouteTable
+  PrivateSubnet1:
+    Properties:
+      AvailabilityZone:
+        Ref: AvailabilityZone1
+      CidrBlock:
+        Fn::Select:
+          - 2
+          - Fn::Cidr:
+              - Ref: VpcCidrBlock
+              - "64"
+              - "10"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - PrivateSubnet1
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::Subnet
+  PrivateSubnet1RouteAssociation:
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTable1
+      SubnetId:
+        Ref: PrivateSubnet1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  PrivateSubnet2:
+    Properties:
+      AvailabilityZone:
+        Ref: AvailabilityZone2
+      CidrBlock:
+        Fn::Select:
+          - 3
+          - Fn::Cidr:
+              - Ref: VpcCidrBlock
+              - "64"
+              - "10"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - PrivateSubnet2
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::Subnet
+  PrivateSubnet2RouteAssociation:
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTable2
+      SubnetId:
+        Ref: PrivateSubnet2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  PublicRouteTable:
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - PublicRouteTable
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::RouteTable
+  PublicSubnet1:
+    Properties:
+      AvailabilityZone:
+        Ref: AvailabilityZone1
+      CidrBlock:
+        Fn::Select:
+          - 0
+          - Fn::Cidr:
+              - Ref: VpcCidrBlock
+              - "64"
+              - "10"
+      MapPublicIpOnLaunch: "true"
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - PublicSubnet1
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::Subnet
+  PublicSubnet1RouteAssociation:
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      SubnetId:
+        Ref: PublicSubnet1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  PublicSubnet2:
+    Properties:
+      AvailabilityZone:
+        Ref: AvailabilityZone2
+      CidrBlock:
+        Fn::Select:
+          - 1
+          - Fn::Cidr:
+              - Ref: VpcCidrBlock
+              - "64"
+              - "10"
+      MapPublicIpOnLaunch: "true"
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - PublicSubnet2
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::Subnet
+  PublicSubnet2RouteAssociation:
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      SubnetId:
+        Ref: PublicSubnet2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  RdsSubnetGroup:
+    Properties:
+      DBSubnetGroupDescription:
+        Fn::Sub: DB Subnet Group for the ${AWS::StackName} stack.
+      SubnetIds:
+        - Ref: PrivateSubnet1
+        - Ref: PrivateSubnet2
+    Type: AWS::RDS::DBSubnetGroup
+  S3Gateway:
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject
+            Effect: Allow
+            Principal: "*"
+            Resource:
+              - arn:aws:s3:::*
+        Version: 2012-10-17
+      RouteTableIds:
+        - Ref: PublicRouteTable
+        - Ref: PrivateRouteTable1
+        - Ref: PrivateRouteTable2
+      ServiceName:
+        Fn::Join:
+          - ""
+          - - com.amazonaws.
+            - Ref: AWS::Region
+            - .s3
+      VpcEndpointType: Gateway
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::VPCEndpoint
+  VPC:
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: ${AWS::StackName}-VPC
+    Type: AWS::EC2::VPC
+  VpcFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceId:
+        Ref: VPC
+      ResourceType: VPC
+      TrafficType: ALL
+      DeliverLogsPermissionArn:
+        Fn::GetAtt:
+          - VpcFlowLogRole
+          - Arn
+      LogDestinationType: cloud-watch-logs
+      LogGroupName:
+        Fn::Sub: vpc/flow-logs/${AWS::StackName}
+  VpcFlowLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: PublishFlowLogs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                Resource: "*"
+  HttpTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Protocol: TCP
+      Port: 80
+      TargetType: ip
+      HealthCheckIntervalSeconds: 10
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: traffic-port
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Ref: VPC
+  ExternalNLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: network
+      Scheme: internet-facing
+      SubnetMappings:
+        - AllocationId: eipalloc-08220b81762050e32
+          SubnetId:
+            Ref: PublicSubnet1
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ExternalNLB
+      Port: 80
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: HttpTargetGroup
+  ExternalAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - Ref: PublicSubnet1
+        - Ref: PublicSubnet2
+  InternalAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internal
+      Subnets:
+        - Ref: PrivateSubnet1
+        - Ref: PrivateSubnet2
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ExternalNLB
+      Port: 443
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: HttpsTargetGroup
+  HttpsTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Protocol: TCP
+      Port: 443
+      TargetType: ip
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: TCP
+      HealthCheckPort: traffic-port
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Ref: VPC
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Code:
+        S3Bucket: my-cloud-bucket
+        S3Key: lambda/build/alb_tg_manager.zip
+      Role:
+        Fn::GetAtt:
+          - LambdaRole
+          - Arn
+      Runtime: python2.7
+      Environment:
+        Variables:
+          HTTP_TG_ARN:
+            Ref: HttpTargetGroup
+          HTTPS_TG_ARN:
+            Ref: HttpsTargetGroup
+          ALB_ARN:
+            Ref: InternalAlb
+          REGION:
+            Ref: AWS::Region
+          S3_BUCKET: my-cloud-bucket
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+  CloudWatchPublishPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CloudWatchPublish
+      Roles:
+        - Ref: LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudwatch:putMetricData
+            Resource:
+              - "*"
+  S3ReadWritePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: S3ReadWrite
+      Roles:
+        - Ref: LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:Get*
+              - s3:PutObject
+              - s3:CreateBucket
+              - s3:ListBucket
+              - s3:ListAllMyBuckets
+            Resource:
+              - "*"
+  LogPublishPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LogPublish
+      Roles:
+        - Ref: LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - arn:aws:logs:*:*:*
+  ElbTargetManagerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ElbTargetManager
+      Roles:
+        - Ref: LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:DescribeSSLPolicies
+              - elasticloadbalancing:DescribeTags
+              - elasticloadbalancing:RegisterTargets
+              - elasticloadbalancing:DeregisterTargets
+              - elasticloadbalancing:DescribeLoadBalancerAttributes
+              - elasticloadbalancing:DescribeLoadBalancers
+              - elasticloadbalancing:DescribeTargetGroupAttributes
+              - elasticloadbalancing:DescribeListeners
+              - elasticloadbalancing:DescribeAccountLimits
+              - elasticloadbalancing:DescribeTargetHealth
+              - elasticloadbalancing:DescribeTargetGroups
+              - elasticloadbalancing:DescribeListenerCertificates
+              - elasticloadbalancing:DescribeRules
+            Resource:
+              - "*"
+  CloudWatchTrigger:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - LambdaFunction
+              - Arn
+          Id: LambdaTargetFunction
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - CloudWatchTrigger
+          - Arn
+Outputs:
+  ExternalAlb:
+    Description: ARN of the External ALB
+    Value:
+      Ref: ExternalAlb
+    Export:
+      Name:
+        Fn::Join:
+          - ":"
+          - - Ref: AWS::StackName
+            - ExternalAlb
+  InternalAlb:
+    Description: ARN of the Internal ALB
+    Value:
+      Ref: InternalAlb
+    Export:
+      Name:
+        Fn::Join:
+          - ":"
+          - - Ref: AWS::StackName
+            - InternalAlb

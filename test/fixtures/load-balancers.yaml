@@ -58,7 +58,7 @@ Resources:
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 766b1754-659f-4bad-acd8-ab322bdcbb95
-  ExternalALB:
+  ExternalAlb:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
       Type: application
@@ -69,7 +69,7 @@ Resources:
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 26c25cb8-4f69-421f-8531-e346f63369da
-  InternalALB:
+  InternalAlb:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
       Type: application
@@ -110,16 +110,32 @@ Resources:
   AlbTgManager:
     Type: 'AWS::CloudFormation::Stack'
     Properties:
-      TemplateURL: >-
-        ./load-balancer-manager.yaml
+      TemplateURL: ./load-balancer-manager.yaml
       Parameters:
         HttpTgArn: !Ref HttpTargetGroup
         HttpsTgArn: !Ref HttpsTargetGroup
-        AlbArn: !Ref InternalALB
-        S3Bucket: 'my-cloud-bucket'
+        AlbArn: !Ref InternalAlb
+        S3Bucket: my-cloud-bucket
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 4cabd535-8212-45c7-8ff2-77a246f4c6db
+Outputs:
+  ExternalAlb:
+    Description: ARN of the External ALB
+    Value: !Ref ExternalAlb
+    Export:
+      Name: !Join
+        - ':'
+        - - !Ref 'AWS::StackName'
+          - ExternalAlb
+  InternalAlb:
+    Description: ARN of the Internal ALB
+    Value: !Ref InternalAlb
+    Export:
+      Name: !Join
+        - ':'
+        - - !Ref 'AWS::StackName'
+          - InternalAlb
 Metadata:
   'AWS::CloudFormation::Designer':
     537621b7-7e59-41aa-a1f1-7d07729ebba4:
