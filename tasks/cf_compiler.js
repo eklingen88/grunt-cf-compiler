@@ -38,6 +38,24 @@ module.exports = function (grunt) {
                 let nestedTemplateNodes = processTemplate( nestedFilepath );
                 let nestedResourceNodes = getResourceNodes(nestedTemplateNodes);
 
+                // Get parameters for replacement and merging
+                let nestedStackParameters = getNestedStackParameters(resourceNode);
+
+                // Replace parameter references
+                for( let nestedParameterProperty in nestedStackParameters) {
+                    let nestedStackParameter = nestedStackParameters[nestedParameterProperty];
+
+                    // Make sure the referenced objects exist
+                    if (nestedStackParameter.hasOwnProperty('Ref')) {
+                        if( !resourceNodes.hasOwnProperty(nestedStackParameter.Ref)) {
+                            grunt.log.error( 'Parent stack is missing referenced parameter' );
+                        }
+                    }
+
+                    // Find and replace parameters in nested stack
+                    nestedResourceNodes = replaceNestedStackParameter(nestedResourceNodes, nestedStackParameter, nestedParameterProperty);
+                }
+
                 // Remove this node
                 delete resourceNodes[resourceProperty];
 
@@ -59,6 +77,45 @@ module.exports = function (grunt) {
 
         // Send back the processed nodes
         return templateNodes;
+    }
+
+    let replaceNestedStackParameter = function(nodes, nestedStackParameter, nestedStackParameterValue) {
+        for( let property in nodes ) {
+            let node = nodes[property];
+
+            if( property == 'Ref' && node == nestedStackParameterValue ) {
+                let a = 1;
+                // Remove current ref
+                delete nodes['Ref'];
+
+                // Add new value
+                if( typeof nestedStackParameter == 'object' ) {
+                    for (let nestedStackParameterProperty in nestedStackParameter) {
+                        nodes[nestedStackParameterProperty] = nestedStackParameter[nestedStackParameterProperty];
+                    }
+                } else {
+                    nodes = nestedStackParameter;
+                }
+            } else if( typeof node == 'object' ) {
+                node = replaceNestedStackParameter(node, nestedStackParameter, nestedStackParameterValue);
+
+                if( typeof node != 'object' ) {
+                    nodes[property] = node;
+                }
+            }
+        }
+
+        return nodes;
+    }
+
+    let getNestedStackParameters = function(node) {
+        if( node.hasOwnProperty('Properties') ) {
+            if (node.Properties.hasOwnProperty('Parameters' ) ) {
+                return node.Properties.Parameters;
+            } else {
+                return new Object();
+            }
+        }
     }
 
     let stripMetadata = function(nodes) {

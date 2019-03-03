@@ -92,13 +92,134 @@ Resources:
       UnhealthyThresholdCount: 2
       VpcId:
         Ref: VPC
-  AlbTgManager:
-    Type: 'AWS::CloudFormation::Stack'
+  LambdaFunction:
+    Type: AWS::Lambda::Function
     Properties:
-      TemplateURL: >-
-        https://s3.amazonaws.com/tmg-cloud/cloudformation/templates/nested/LambdaAlbTgManager.yaml
-      Parameters:
-        HttpTgArn: !Ref HttpTargetGroup
-        HttpsTgArn: !Ref HttpsTargetGroup
-        AlbArn: !Ref InternalALB
-        S3Bucket: 'tmg-sandbox-temp'
+      Handler: index.handler
+      Code:
+        S3Bucket: tmg-cloud
+        S3Key: lambda/build/alb_tg_manager.zip
+      Role:
+        Fn::GetAtt:
+          - LambdaRole
+          - Arn
+      Runtime: python2.7
+      Environment:
+        Variables:
+          HTTP_TG_ARN:
+            Ref: HttpTargetGroup
+          HTTPS_TG_ARN:
+            Ref: HttpsTargetGroup
+          ALB_ARN:
+            Ref: InternalALB
+          REGION:
+            Ref: AWS::Region
+          S3_BUCKET: tmg-sandbox-temp
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+  CloudWatchPublishPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CloudWatchPublish
+      Roles:
+        - Ref: LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudwatch:putMetricData
+            Resource:
+              - "*"
+  S3ReadWritePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: S3ReadWrite
+      Roles:
+        - Ref: LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:Get*
+              - s3:PutObject
+              - s3:CreateBucket
+              - s3:ListBucket
+              - s3:ListAllMyBuckets
+            Resource:
+              - "*"
+  LogPublishPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LogPublish
+      Roles:
+        - Ref: LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - arn:aws:logs:*:*:*
+  ElbTargetManagerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ElbTargetManager
+      Roles:
+        - Ref: LambdaRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:DescribeSSLPolicies
+              - elasticloadbalancing:DescribeTags
+              - elasticloadbalancing:RegisterTargets
+              - elasticloadbalancing:DeregisterTargets
+              - elasticloadbalancing:DescribeLoadBalancerAttributes
+              - elasticloadbalancing:DescribeLoadBalancers
+              - elasticloadbalancing:DescribeTargetGroupAttributes
+              - elasticloadbalancing:DescribeListeners
+              - elasticloadbalancing:DescribeAccountLimits
+              - elasticloadbalancing:DescribeTargetHealth
+              - elasticloadbalancing:DescribeTargetGroups
+              - elasticloadbalancing:DescribeListenerCertificates
+              - elasticloadbalancing:DescribeRules
+            Resource:
+              - "*"
+  CloudWatchTrigger:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - LambdaFunction
+              - Arn
+          Id: LambdaTargetFunction
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - CloudWatchTrigger
+          - Arn
