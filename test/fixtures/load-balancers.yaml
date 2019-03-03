@@ -19,8 +19,12 @@ Parameters:
     Description: >-
       Allocation ID for Elastic IP to be used for the Network Load Balancer in
       PublicSubnet1 (e.g. epialloc-08220b81762050e32)
+  CertificateArn:
+    Type: String
+    AllowedPattern: 'arn:aws:acm:[0-9a-z\-]+:[0-9]+:certificate\/[0-9a-f\-]+'
+    Description: Certificate ARN for the ALB listeners.
 Resources:
-  HttpTargetGroup:
+  ExternalNlbHttpTg:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
       Protocol: TCP
@@ -35,7 +39,7 @@ Resources:
     Metadata:
       'AWS::CloudFormation::Designer':
         id: cf5bd0b1-75cd-45f5-a259-313e49463834
-  ExternalNLB:
+  ExternalNlb:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
       Type: network
@@ -46,15 +50,15 @@ Resources:
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 537621b7-7e59-41aa-a1f1-7d07729ebba4
-  HttpListener:
+  ExternalNlbHttpListener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
-      LoadBalancerArn: !Ref ExternalNLB
+      LoadBalancerArn: !Ref ExternalNlb
       Port: 80
       Protocol: TCP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref HttpTargetGroup
+          TargetGroupArn: !Ref ExternalNlbHttpTg
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 766b1754-659f-4bad-acd8-ab322bdcbb95
@@ -80,19 +84,19 @@ Resources:
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 0fe0044a-a1cf-46ad-9545-65a4e5ecf31a
-  HttpsListener:
+  ExternalNlbHttpsListener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
-      LoadBalancerArn: !Ref ExternalNLB
+      LoadBalancerArn: !Ref ExternalNlb
       Port: 443
       Protocol: TCP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref HttpsTargetGroup
+          TargetGroupArn: !Ref ExternalNlbHttpsTg
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 1543de2d-2738-452f-8a5d-1e95336ceefe
-  HttpsTargetGroup:
+  ExternalNlbHttpsTg:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
       Protocol: TCP
@@ -112,13 +116,77 @@ Resources:
     Properties:
       TemplateURL: ./load-balancer-manager.yaml
       Parameters:
-        HttpTgArn: !Ref HttpTargetGroup
-        HttpsTgArn: !Ref HttpsTargetGroup
+        HttpTgArn: !Ref ExternalNlbHttpTg
+        HttpsTgArn: !Ref ExternalNlbHttpsTg
         AlbArn: !Ref InternalAlb
         S3Bucket: my-cloud-bucket
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 4cabd535-8212-45c7-8ff2-77a246f4c6db
+  ExternalAlbHttpsListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref ExternalAlb
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - Certificate: !Ref CertificateArn
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody: !Sub '${AWS::StackName} External ALB on 443'
+            StatusCode: 200
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: fd5f24af-bdcb-43e1-8539-343accfae8a8
+  ExternalAlbHttpListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref ExternalAlb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody: !Sub '${AWS::StackName} External ALB on 80'
+            StatusCode: 200
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: a4d3e2d6-5eaf-4c32-9e43-71dcee925d98
+  InternalAlbHttpListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref InternalAlb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody: !Sub '${AWS::StackName} Internal ALB on 80'
+            StatusCode: 200
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 46652a26-e86b-44c6-a00f-58da6a16cbb6
+  InternalAlbHttpsListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref InternalAlb
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - Certificate: !Ref CertificateArn
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody: !Sub '${AWS::StackName} Internal ALB on 443'
+            StatusCode: 200
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 286fc216-a6a8-4437-9ef5-fc30cbcd2546
 Outputs:
   ExternalAlb:
     Description: ARN of the External ALB
@@ -152,8 +220,8 @@ Metadata:
         width: 60
         height: 60
       position:
-        x: 150
-        'y': 150
+        x: -90
+        'y': 100
       z: 1
       embeds: []
       isassociatedwith:
@@ -164,7 +232,7 @@ Metadata:
         height: 60
       position:
         x: 30
-        'y': 300
+        'y': 260
       z: 1
       embeds: []
     1543de2d-2738-452f-8a5d-1e95336ceefe:
@@ -172,8 +240,8 @@ Metadata:
         width: 60
         height: 60
       position:
-        x: 150
-        'y': 240
+        x: -90
+        'y': 260
       z: 1
       embeds: []
       isassociatedwith:
@@ -184,7 +252,7 @@ Metadata:
         height: 60
       position:
         x: 30
-        'y': 90
+        'y': 100
       z: 1
       embeds: []
     26c25cb8-4f69-421f-8531-e346f63369da:
@@ -193,7 +261,7 @@ Metadata:
         height: 60
       position:
         x: 30
-        'y': 430
+        'y': 390
       z: 1
       embeds: []
     0fe0044a-a1cf-46ad-9545-65a4e5ecf31a:
@@ -201,7 +269,7 @@ Metadata:
         width: 60
         height: 60
       position:
-        x: 280
+        x: 240
         'y': 180
       z: 1
       embeds: []
@@ -210,7 +278,57 @@ Metadata:
         width: 60
         height: 60
       position:
-        x: 550
+        x: 140
         'y': 180
       z: 1
       embeds: []
+    fd5f24af-bdcb-43e1-8539-343accfae8a8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -90
+        'y': 350
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 537621b7-7e59-41aa-a1f1-7d07729ebba4
+        - 26c25cb8-4f69-421f-8531-e346f63369da
+    a4d3e2d6-5eaf-4c32-9e43-71dcee925d98:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -90
+        'y': 430
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 537621b7-7e59-41aa-a1f1-7d07729ebba4
+        - 26c25cb8-4f69-421f-8531-e346f63369da
+    46652a26-e86b-44c6-a00f-58da6a16cbb6:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 360
+        'y': 220
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 537621b7-7e59-41aa-a1f1-7d07729ebba4
+        - 26c25cb8-4f69-421f-8531-e346f63369da
+        - 0fe0044a-a1cf-46ad-9545-65a4e5ecf31a
+    286fc216-a6a8-4437-9ef5-fc30cbcd2546:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 360
+        'y': 140
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 537621b7-7e59-41aa-a1f1-7d07729ebba4
+        - 26c25cb8-4f69-421f-8531-e346f63369da
+        - 0fe0044a-a1cf-46ad-9545-65a4e5ecf31a
