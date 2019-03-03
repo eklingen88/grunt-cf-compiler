@@ -56,6 +56,15 @@ module.exports = function(grunt) {
           src: 'test/fixtures/load-balancers.yaml',
           dest: 'tmp/load-balancers.yaml'
         }]
+      },
+      network_infrastructure: {
+        options: {
+          outputFormat: 'yaml'
+        },
+        files: [{
+          src: 'test/fixtures/network-infrastructure.yaml',
+          dest: 'tmp/network-infrastructure.yaml'
+        }]
       }
     },
 
