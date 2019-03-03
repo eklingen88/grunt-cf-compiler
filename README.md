@@ -86,6 +86,7 @@ In lieu of a formal styleguide, take care to maintain the existing coding style.
 - Prefixing substack resource names.
 - JSON and YAML output options.
 - Template validation using _cfn-lint_.
+- **Better documentation!!!**
 
 ## Release History
 _(Nothing yet)_
